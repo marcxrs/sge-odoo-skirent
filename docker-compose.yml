@@ -1,0 +1,56 @@
+services:
+  db:
+    image: postgres:latest
+    container_name: odoo_postgres
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=odoo
+      - POSTGRES_PASSWORD=odoo123
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    volumes:
+      - odoo-db-data:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U odoo"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+  
+  web:
+    image: odoo:16.0
+    container_name: odoo_app
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8069:8069"
+    environment:
+      - HOST=db
+      - USER=odoo
+      - PASSWORD=odoo123
+    volumes:
+      - odoo-web-data:/var/lib/odoo
+      - ./config:/etc/odoo
+      - ./addons:/mnt/extra-addons
+      - ./logs:/var/log/odoo
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8069/web/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+  
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: odoo_mailhog
+    ports:
+      - "8025:8025"
+
+volumes:
+  odoo-web-data:
+  odoo-db-data:
+
+networks:
+  default:
+    name: odoo_network
